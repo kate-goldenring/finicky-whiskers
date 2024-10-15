@@ -1,90 +1,109 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 name = "finicky-whiskers"
 version = "1.1.0"
-trigger = { type = "http", base = "/" }
 
-# Serve static files
-[[component]]
-id = "fileserver"
-source = "components/fileserver.wasm"
-files = [{ source = "site/dist", destination = "/" }]
-[component.trigger]
+[application.trigger.http]
+base = "/"
+
+[[trigger.http]]
+id = "trigger-fileserver"
+component = "fileserver"
 route = "/..."
-[component.build]
-workdir = "site"
-command = "make"
 
-# Redirect / to /index.html
-[[component]]
-id = "redirect-to-index"
-source = "components/redirect.wasm"
-environment = { DESTINATION = "/index.html" }
-[component.trigger]
+[[trigger.http]]
+id = "trigger-redirect-to-index"
+component = "redirect-to-index"
 route = "/"
 executor = { type = "wagi" }
-[component.build]
-workdir = "redirect"
+
+[[trigger.http]]
+id = "trigger-tally"
+component = "tally"
+route = "/tally"
+
+[[trigger.http]]
+id = "trigger-session"
+component = "session"
+route = "/session"
+
+[[trigger.http]]
+id = "trigger-scoreboard"
+component = "scoreboard"
+route = "/score"
+
+[[trigger.http]]
+id = "trigger-highscore"
+component = "highscore"
+route = "/highscore"
+
+[[trigger.http]]
+id = "trigger-reset"
+component = "reset"
+route = "/reset"
+
+[component.fileserver]
+source = "components/fileserver.wasm"
+files = [{ source = "site/dist", destination = "/" }]
+
+[component.fileserver.build]
 command = "make"
+workdir = "site"
+
+[component.redirect-to-index]
+source = "components/redirect.wasm"
+environment = { DESTINATION = "/index.html" }
+
+[component.redirect-to-index.build]
+command = "make"
+workdir = "redirect"
 watch = ["**/*.go", "go.mod"]
 
-# Tally an individual event
-[[component]]
-id = "tally"
+[component.tally]
 source = "components/tally.wasm"
+allowed_outbound_hosts = ["redis://*:*"]
 key_value_stores = ["default"]
-[component.trigger]
-route = "/tally"
-[component.build]
-workdir = "tally"
+
+[component.tally.build]
 command = "make"
+workdir = "tally"
 watch = ["src/**/*.rs", "Cargo.toml"]
 
-# Initialize session data
-[[component]]
-id = "session"
+[component.session]
 source = "components/sessionv2.wasm"
-[component.trigger]
-route = "/session"
-[component.build]
-workdir = "sessionv2"
+
+[component.session.build]
 command = "make build"
+workdir = "sessionv2"
 watch = ["src/**/*.ts", "package.json"]
 
-# Get the scores for a particular game
-[[component]]
-id = "scoreboard"
+[component.scoreboard]
 source = "components/scoreboard.wasm"
+allowed_outbound_hosts = ["redis://*:*"]
 key_value_stores = ["default"]
-[component.trigger]
-route = "/score"
-[component.build]
-workdir = "scoreboard"
+
+[component.scoreboard.build]
 command = "make"
+workdir = "scoreboard"
 watch = ["src/**/*.rs", "Cargo.toml"]
 
-# Stores highscores in key/value
-[[component]]
-id = "highscore"
+[component.highscore]
 source = "components/highscore.wasm"
 sqlite_databases = ["default"]
-[component.trigger]
-route = "/highscore"
-[component.build]
-workdir = "highscore"
+
+[component.highscore.build]
 command = "make"
+workdir = "highscore"
 watch = ["src/**/*.rs", "Cargo.toml"]
 
-# Component to reset all state
-[[component]]
-id = "reset"
+[component.reset]
 source = "components/reset.wasm"
-allowed_http_hosts = []
+allowed_outbound_hosts = ["redis://*:*"]
 key_value_stores = ["default"]
 sqlite_databases = ["default"]
-[component.trigger]
-route = "/reset"
-[component.build]
-workdir = "reset"
-command = "make"
-watch = ["src/**/*.rs", "Cargo.toml"]
 
+[component.reset.build]
+command = "make"
+workdir = "reset"
+watch = ["src/**/*.rs", "Cargo.toml"]

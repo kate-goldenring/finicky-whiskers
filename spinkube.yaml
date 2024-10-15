@@ -1,0 +1,75 @@
+apiVersion: core.spinoperator.dev/v1alpha1
+kind: SpinApp
+metadata:
+  name: finicky
+spec:
+  image: "ghcr.io/endocrimes/finicky:cntr"
+  executor: containerd-shim-spin
+  enableAutoscaling: true
+  resources:
+    limits:
+      cpu: 2048m
+      memory: 1Gi
+  runtimeConfig:
+    keyValueStores:
+      - name: "default"
+        type: "redis"
+        options:
+          - name: "url"
+            valueFrom:
+              secretKeyRef:
+                name: "redis-store"
+                key: "url"
+    sqliteDatabases:
+      - name: "default"
+        type: "libsql"
+        options:
+          - name: "url"
+            valueFrom:
+              secretKeyRef:
+                name: "turso-database"
+                key: "url"
+          - name: "token"
+            valueFrom:
+              secretKeyRef:
+                name: "turso-database"
+                key: "token"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: finicky
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: finicky.run.terrible.systems
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: finicky
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - finicky.run.terrible.systems
+    secretName: finicky-run-terrible-systems-tls
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: turso-database
+data:
+  url: "ADD BASE64 ENCODED URL HERE"
+  token: "ADD BASE64 ENCODED TOKEN HERE"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-store
+data:
+  url: "ADD BASE64 ENCODED URL WITH EMBEDDED CREDENTIALS HERE"
