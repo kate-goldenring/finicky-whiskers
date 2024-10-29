@@ -1,21 +1,21 @@
 use core::panic;
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use http::Method;
 use rusty_ulid::Ulid;
 use serde::{Deserialize, Serialize};
 use spin_sdk::{
     http::{Request, Response},
-    http_component, sqlite::{Row, ValueParam},
+    http_component, sqlite::{Row, Value},
 };
 
 #[http_component]
 fn highscore(req: Request) -> Result<Response> {
     let res_body: String = match *req.method() {
-        Method::GET => {
+        spin_sdk::http::Method::Get => {
             serde_json::to_string_pretty(&get_highscore().unwrap()).unwrap()
         }
-        Method::POST => check_highscore(req).unwrap_or_else(|_| "".to_string()),
+        spin_sdk::http::Method::Post => check_highscore(req).unwrap_or_else(|_| "".to_string()),
         _ => "".to_string(),
     };
 
@@ -25,19 +25,16 @@ fn highscore(req: Request) -> Result<Response> {
         status = 405;
     }
 
-    Ok(http::Response::builder()
+    Ok(Response::builder()
         .status(status)
-        .body(Some(res_body.into()))?)
+        .body(res_body).build())
 }
 
 fn check_highscore(req: Request) -> Result<String> {
     println!("Incoming body: {:?}", req.body());
 
     // Parsing incoming request to HighScore
-    let incoming_score: HighScore = match req.body() {
-        Some(b) => serde_json::from_slice(b)?,
-        None => panic!("Failed to parse the incoming request"),
-    };
+    let incoming_score: HighScore = serde_json::from_slice(req.body()).context("failed to deserialize score")?;
 
     // Inserting the highscore into the database
     replace_highscore(&incoming_score)?;
@@ -86,16 +83,18 @@ fn get_highscore() -> Result<Vec<HighScore>> {
 }
 
 fn replace_highscore(highscore: &HighScore) -> Result<()> {
+    println!("Replacing highscore: {:?}", highscore.score);
     let conn = spin_sdk::sqlite::Connection::open_default()?;
     let query = "REPLACE INTO highscore (ulid, score, username) VALUES (?, ?, ?)";
 
     let ulid = highscore.ulid.expect("ulid is required").to_string();
     let params = &[
-        ValueParam::Text(&ulid), 
-        ValueParam::Integer(highscore.score as i64), 
-        ValueParam::Text(&highscore.username)
+        Value::Text(ulid), 
+        Value::Integer(highscore.score as i64), 
+        Value::Text(highscore.username.clone())
     ];
     conn.execute(query, params)?;
+    println!("Highscore replaced");
     Ok(())
 }
 
@@ -103,7 +102,7 @@ fn delete_highscore(ulid: Ulid) -> Result<()> {
     let conn = spin_sdk::sqlite::Connection::open_default()?;
     let query = "DELETE FROM highscore WHERE ulid = ?";
     let ulid = ulid.to_string();
-    let params = &[ValueParam::Text(&ulid)];
+    let params = &[Value::Text(ulid)];
     conn.execute(query, params)?;
     Ok(())
 }
