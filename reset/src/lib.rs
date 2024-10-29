@@ -9,18 +9,15 @@ use spin_sdk::{
 #[http_component]
 fn reset(_req: Request) -> Result<Response> {
     if let Err(e) = reset_keyvalue() {
-        return Ok(http::Response::builder()
-            .status(500)
-            .body(Some(e.to_string().into()))?);
+        return Ok(Response::builder().status(500).body(e.to_string()).build());
     }
     if let Err(e) = reset_highscore() {
-        return Ok(http::Response::builder()
-            .status(500)
-            .body(Some(e.to_string().into()))?);
+        return Ok(Response::builder().status(500).body(e.to_string()).build());
     }
-    Ok(http::Response::builder()
+    Ok(Response::builder()
         .status(200)
-        .body(Some("Finicky Whickers is reset.".into()))?)
+        .body("Finicky Whickers is reset.")
+        .build())
 }
 
 fn reset_keyvalue() -> Result<()> {
